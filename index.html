@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grid Blitz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=25">
+</head>
+<body>
+  <div class="game-wrapper">
+    <header class="hud">
+      <h1 data-i18n="ui.gameTitle">GRID BLITZ</h1>
+      <div class="hud-actions">
+        <button id="shop-btn" class="pixel-btn" type="button" data-i18n="ui.shop">SHOP</button>
+        <button id="codes-btn" class="pixel-btn" type="button" data-i18n="ui.codes">CODES</button>
+        <button id="settings-btn" class="pixel-btn" type="button" data-i18n="ui.settings">SETTINGS</button>
+        <button id="pause-btn" class="pixel-btn" type="button">PAUSE</button>
+      </div>
+      <div class="hud-stats">
+        <div class="score-board">
+          <span class="label" data-i18n="ui.score">SCORE</span>
+          <span id="score">0</span>
+        </div>
+        <div class="coin-board">
+          <span class="label" data-i18n="ui.coins">COINS</span>
+          <span id="coins">0</span>
+        </div>
+        <div class="hazard-board">
+          <span class="label" data-i18n="ui.hazards">HAZARDS</span>
+          <span id="hazard-hits">0/3</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="status-row">
+      <div id="bots-hud" class="bots-hud hidden">
+        <span id="bots-rank" class="bots-rank">RANK: 1/15</span>
+        <span id="bots-length" class="bots-length">LENGTH: 3</span>
+        <span id="bots-timer" class="bots-timer hidden">TIME: 1:00</span>
+      </div>
+      <div id="ability-hud" class="ability-hud">
+        <span id="ability-name" class="ability-name">ABILITY: —</span>
+        <span id="ability-status" class="ability-status" data-i18n="ui.ready">READY</span>
+      </div>
+      <div id="amplify-hud" class="amplify-hud hidden">
+        <span class="amplify-label" data-i18n="ui.amplifyCoins">2x SCORE</span>
+        <span id="amplify-timer" class="amplify-timer">1:05</span>
+      </div>
+    </div>
+
+    <div class="canvas-frame">
+      <canvas id="game" width="400" height="400"></canvas>
+      <div id="overlay" class="overlay hidden">
+        <p id="overlay-title" class="overlay-title" data-i18n="ui.gameOver">GAME OVER</p>
+        <p id="overlay-msg" class="overlay-msg">You bit yourself!</p>
+        <p class="overlay-hint" data-i18n="ui.pressSpaceRestart">PRESS SPACE TO RESTART</p>
+      </div>
+      <div id="start-screen" class="overlay">
+        <p class="overlay-title" data-i18n="ui.gameTitle">GRID BLITZ</p>
+        <p class="overlay-msg" data-i18n="ui.startMsg">Only 3 items on screen. Black apples (-5) and bombs (÷2) despawn after 15s!</p>
+        <p class="controls-hint">
+          <span>W</span><span>A</span><span>S</span><span>D</span>
+          <span data-i18n="ui.controlsOrArrows">or arrow keys to move</span>
+        </p>
+        <p class="overlay-hint blink" data-i18n="ui.pressSpaceStart">PRESS SPACE TO START</p>
+      </div>
+      <div id="phoenix-modal" class="overlay hidden">
+        <p class="overlay-title" data-i18n="ui.phoenixRebirth">PHOENIX REBIRTH</p>
+        <p id="phoenix-msg" class="overlay-msg"></p>
+        <p id="phoenix-penalty" class="overlay-hint"></p>
+        <div class="phoenix-actions">
+          <button id="phoenix-yes" class="pixel-btn" type="button" data-i18n="ui.yes">YES</button>
+          <button id="phoenix-no" class="pixel-btn" type="button" data-i18n="ui.no">NO</button>
+        </div>
+      </div>
+      <div id="detonator-modal" class="overlay hidden">
+        <p class="overlay-title" data-i18n="ui.selfBiteTitle">SELF-BITE!</p>
+        <p class="overlay-msg" data-i18n="ui.detonatePrompt">Detonate the tail block you hit, or end the run?</p>
+        <div class="phoenix-actions">
+          <button id="detonator-detonate" class="pixel-btn" type="button" data-i18n="ui.detonate">DETONATE</button>
+          <button id="detonator-over" class="pixel-btn" type="button" data-i18n="ui.gameOverBtn">GAME OVER</button>
+        </div>
+      </div>
+      <div id="pause-modal" class="overlay hidden">
+        <p class="overlay-title" data-i18n="ui.paused">PAUSED</p>
+        <p class="overlay-hint" data-i18n="ui.pressPResume">PRESS P TO RESUME</p>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <span data-i18n="ui.footerMove">W A S D / ARROWS — MOVE</span>
+      <span data-i18n="ui.footerSpace">SPACE — START / RESTART</span>
+      <span data-i18n="ui.footerShop">SHOP BUTTON / B — SKINS</span>
+      <span data-i18n="ui.footerAbility">F — USE SKIN ABILITY</span>
+      <span data-i18n="ui.footerSecondAbility">T — 2ND ABILITY (GODZILLA / RIFT WEAVER)</span>
+      <span data-i18n="ui.footerPause">P — PAUSE / RESUME</span>
+    </footer>
+  </div>
+
+  <div id="shop-modal" class="shop-modal hidden">
+    <div class="shop-panel">
+      <div class="shop-header">
+        <h2 data-i18n="ui.snakeShop">SNAKE SHOP</h2>
+        <p class="shop-coins"><span data-i18n="ui.coinsColon">COINS:</span> <span id="shop-coins">0</span></p>
+        <button id="shop-close" class="pixel-btn small" type="button">X</button>
+      </div>
+      <p class="shop-subtitle" data-i18n="ui.shopSubtitle">Earn coins by eating apples. Each skin has a unique ability!</p>
+      <div id="shop-grid" class="shop-grid"></div>
+    </div>
+  </div>
+
+  <div id="codes-modal" class="shop-modal hidden">
+    <div class="shop-panel codes-panel">
+      <div class="shop-header">
+        <h2 data-i18n="ui.enterCode">ENTER CODE</h2>
+        <button id="codes-close" class="pixel-btn small" type="button">X</button>
+      </div>
+      <p class="shop-subtitle" data-i18n="ui.codesSubtitle">Type a code to redeem rewards for this session.</p>
+      <input id="code-input" class="code-input" type="text" data-i18n-placeholder="ui.codePlaceholder" placeholder="TYPE CODE..." autocomplete="off" spellcheck="false" />
+      <button id="code-submit" class="pixel-btn code-submit-btn" type="button" data-i18n="ui.redeem">REDEEM</button>
+      <p id="code-error" class="code-error hidden"></p>
+    </div>
+  </div>
+
+  <div id="code-toast" class="code-toast hidden"></div>
+
+  <div id="bots-mode-modal" class="shop-modal hidden">
+    <div class="shop-panel bots-mode-panel">
+      <div class="shop-header">
+        <h2 data-i18n="ui.botsModeTitle">WITH BOTS</h2>
+        <button id="bots-mode-close" class="pixel-btn small" type="button">X</button>
+      </div>
+      <p class="shop-subtitle" data-i18n="ui.botsModeChoose">Choose a bots game mode:</p>
+      <div class="bots-mode-choices">
+        <button id="bots-mode-apple-hunt" class="bots-mode-btn" type="button">
+          <span class="bots-mode-name" data-i18n="ui.appleHunt">APPLE HUNT</span>
+          <span class="bots-mode-desc" data-i18n="ui.appleHuntDesc">Race bots for 1 minute — longest snake wins!</span>
+        </button>
+        <button id="bots-mode-cobra-battle" class="bots-mode-btn" type="button">
+          <span class="bots-mode-name" data-i18n="ui.cobraBattle">COBRA BATTLE</span>
+          <span class="bots-mode-desc" data-i18n="ui.cobraBattleDesc">Pick a skin and fight to be the last snake standing!</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="shop-modal hidden">
+    <div class="shop-panel settings-panel">
+      <div class="shop-header">
+        <h2 data-i18n="ui.settingsTitle">SETTINGS</h2>
+        <button id="settings-close" class="pixel-btn small" type="button">X</button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" data-i18n="ui.playMode">PLAY MODE</span>
+        <div class="playmode-toggle">
+          <button id="settings-single-btn" class="mode-choice-btn active" type="button" data-i18n="ui.singlePlayer">SINGLE PLAYER</button>
+          <button id="settings-multi-btn" class="mode-choice-btn" type="button" data-i18n="ui.multiplayer">MULTIPLAYER</button>
+        </div>
+        <div id="settings-multi-submodes" class="multi-submodes hidden">
+          <p class="settings-multi-prompt" data-i18n="ui.multiplayerChoose">Choose multiplayer type:</p>
+          <button id="settings-lobby-btn" class="mode-choice-btn locked" type="button" data-i18n="ui.lobby">LOBBY</button>
+          <button id="settings-bots-btn" class="mode-choice-btn" type="button" data-i18n="ui.withBots">WITH BOTS</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label" for="music-volume" data-i18n="ui.musicVolume">MUSIC VOLUME</label>
+        <div class="settings-control">
+          <input id="music-volume" class="settings-slider" type="range" min="0" max="100" value="50" />
+          <span id="music-volume-value" class="settings-value">50%</span>
+        </div>
+        <div class="music-controls">
+          <button id="music-prev" class="pixel-btn small music-skip-btn" type="button" data-i18n="ui.musicPrev">◀ PREV</button>
+          <button id="music-next" class="pixel-btn small music-skip-btn" type="button" data-i18n="ui.musicNext">NEXT ▶</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" data-i18n="ui.difficulty">DIFFICULTY</span>
+        <div class="mode-toggle">
+          <button id="mode-easy" class="mode-btn" type="button" data-i18n="ui.modeEasy">EASY</button>
+          <button id="mode-normal" class="mode-btn active" type="button" data-i18n="ui.modeNormal">NORMAL</button>
+          <button id="mode-hard" class="mode-btn" type="button" data-i18n="ui.modeHard">HARD</button>
+          <button id="mode-extreme" class="mode-btn" type="button" data-i18n="ui.modeExtreme">EXTREME</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" data-i18n="ui.theme">THEME</span>
+        <div class="theme-toggle">
+          <button id="theme-dark" class="theme-btn active" type="button" data-i18n="ui.themeDark">DARK</button>
+          <button id="theme-light" class="theme-btn" type="button" data-i18n="ui.themeLight">LIGHT</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <label class="settings-label" for="language-select" data-i18n="ui.language">LANGUAGE</label>
+        <select id="language-select" class="language-select" data-i18n-aria="ui.language" aria-label="Language">
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <script src="i18n.js?v=31"></script>
+  <script src="game.js?v=106"></script>
+</body>
+</html>
