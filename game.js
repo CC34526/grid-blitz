@@ -72,11 +72,8 @@ const SPEED_MODE_EASY_MULT = 1.35;
 const SPEED_MODE_HARD_MULT = 0.69;
 const SPEED_MODE_EXTREME_MULT = 0.28;
 const MUSIC_TRACKS = [
-  'William Tell Overture.mp3',
-  'Radetzky March, Op. 228.mp3',
-  'Blue Danube Waltz.mp3',
-  'Edvard Grieg_ In the Hall of the Mountain King  Nicolò Foron & London Symphony Orchestra.mp3',
-  'The Four Seasons, Violin Concerto in F Minor, Op. 8 No. 4, RV 297 Winter_ I. Allegro non molto.mp3',
+  'Pixel Coil.mp3',
+  'Venom Coil Run.mp3',
 ];
 const REDEEM_CODE = 'artificial';
 const PYTHON_CODE = 'python';
