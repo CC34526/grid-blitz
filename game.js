@@ -69,6 +69,9 @@ const settingsDeviceTabletBtn = document.getElementById('settings-device-tablet'
 const settingsDeviceComputerBtn = document.getElementById('settings-device-computer');
 const hazardBoard = document.querySelector('.hazard-board');
 const abilityHud = document.getElementById('ability-hud');
+const abilityTouchControls = document.getElementById('ability-touch-controls');
+const skillPrimaryBtn = document.getElementById('skill-primary-btn');
+const skillSecondaryBtn = document.getElementById('skill-secondary-btn');
 
 const SAVE_KEY = 'pixelSnakeSave';
 const SAVE_VERSION = 1;
@@ -80,8 +83,10 @@ const SPEED_MODE_EASY_MULT = 1.35;
 const SPEED_MODE_HARD_MULT = 0.69;
 const SPEED_MODE_EXTREME_MULT = 0.28;
 const MUSIC_TRACKS = [
-  'Pixel Coil.mp3',
+  "Can't Stop Rockin.mp3",
   'Venom Coil Run.mp3',
+  'Venom Coil Run (1).mp3',
+  'Venom Coil Run (2).mp3',
 ];
 const REDEEM_CODE = 'artificial';
 const PYTHON_CODE = 'python';
@@ -572,6 +577,66 @@ function updateDeviceInputUI() {
   if (controlsHint) {
     controlsHint.classList.toggle('hidden', touch);
   }
+
+  const footerKeyMap = {
+    'ui.footerMove': 'ui.footerMoveTouch',
+    'ui.footerSpace': 'ui.footerSpaceTouch',
+    'ui.footerShop': 'ui.footerShopTouch',
+    'ui.footerAbility': 'ui.footerAbilityTouch',
+    'ui.footerSecondAbility': 'ui.footerSecondAbilityTouch',
+    'ui.footerPause': 'ui.footerPauseTouch',
+  };
+  document.querySelectorAll('.footer [data-i18n]').forEach((el) => {
+    const baseKey = el.dataset.i18n;
+    const key = touch && footerKeyMap[baseKey] ? footerKeyMap[baseKey] : baseKey;
+    el.textContent = t(key);
+  });
+
+  if (skillPrimaryBtn) skillPrimaryBtn.textContent = t('ui.skillPrimary');
+  if (skillSecondaryBtn) skillSecondaryBtn.textContent = t('ui.skillSecondary');
+  updateTouchAbilityControls();
+}
+
+function shouldBlockKeyboardGameControls() {
+  return isTouchDeviceProfile() && !isTypingInField();
+}
+
+function usePrimaryAbility() {
+  if (state !== 'playing' || userPauseActive || isGameModalOpen()) return;
+  if (selectedSkin === 'godzilla') {
+    useGodzillaAtomic();
+  } else if (selectedSkin === 'riftweaver') {
+    useRiftPocketDimension();
+  } else {
+    useManualAbility();
+  }
+}
+
+function useSecondaryAbility() {
+  if (state !== 'playing' || userPauseActive || isGameModalOpen()) return;
+  if (selectedSkin === 'godzilla') {
+    useGodzillaPulse();
+  } else if (selectedSkin === 'riftweaver') {
+    useRiftAbsorb();
+  }
+}
+
+function updateTouchAbilityControls() {
+  if (!abilityTouchControls) return;
+  const touch = isTouchDeviceProfile();
+  const ability = SKIN_ABILITIES[selectedSkin];
+  const dualSkill = selectedSkin === 'godzilla' || selectedSkin === 'riftweaver';
+  const hasPrimarySkill = dualSkill || ability?.manual;
+  const showControls = touch && hasPrimarySkill;
+
+  abilityTouchControls.classList.toggle('hidden', !showControls);
+
+  if (skillPrimaryBtn) {
+    skillPrimaryBtn.classList.toggle('hidden', !hasPrimarySkill);
+  }
+  if (skillSecondaryBtn) {
+    skillSecondaryBtn.classList.toggle('hidden', !dualSkill);
+  }
 }
 
 const TOUCH_TAP_MAX_PX = 16;
@@ -626,6 +691,19 @@ function canTouchStartOrRestart() {
   return state === 'over' || state === 'waiting';
 }
 
+function setTouchScrollLock(locked) {
+  if (!isTouchDeviceProfile()) return;
+  document.documentElement.classList.toggle('touch-scroll-lock', locked);
+}
+
+function releaseTouchTracking() {
+  touchActive = false;
+  touchPointerId = null;
+  setTouchScrollLock(false);
+}
+
+const TOUCH_EVENT_OPTS = { passive: false };
+
 function initTouchControls() {
   const frame = document.querySelector('.canvas-frame');
   if (!frame) return;
@@ -639,8 +717,10 @@ function initTouchControls() {
     touchAnchorX = e.clientX;
     touchAnchorY = e.clientY;
     touchPointerId = e.pointerId;
+    setTouchScrollLock(true);
     if (frame.setPointerCapture) frame.setPointerCapture(e.pointerId);
-  });
+    if (e.pointerType === 'touch') e.preventDefault();
+  }, TOUCH_EVENT_OPTS);
 
   frame.addEventListener('pointermove', (e) => {
     if (!touchActive || e.pointerId !== touchPointerId) return;
@@ -652,20 +732,23 @@ function initTouchControls() {
       touchMoved = true;
     }
 
+    if (touchMoved) e.preventDefault();
+
     if (canTouchControlGame()) {
       updateTouchDirection(e.clientX, e.clientY);
     }
-  }, { passive: true });
+  }, TOUCH_EVENT_OPTS);
 
   frame.addEventListener('pointerup', (e) => {
     if (!touchActive || e.pointerId !== touchPointerId) return;
-    touchActive = false;
-    touchPointerId = null;
     if (frame.releasePointerCapture && frame.hasPointerCapture(e.pointerId)) {
       frame.releasePointerCapture(e.pointerId);
     }
 
-    if (!isTouchDeviceProfile()) return;
+    if (!isTouchDeviceProfile()) {
+      releaseTouchTracking();
+      return;
+    }
 
     if (!touchMoved) {
       const dx = e.clientX - touchStartX;
@@ -673,19 +756,27 @@ function initTouchControls() {
       if (Math.hypot(dx, dy) <= TOUCH_TAP_MAX_PX && canTouchStartOrRestart()) {
         startGame();
       }
-      return;
-    }
-
-    if (canTouchControlGame()) {
+    } else if (canTouchControlGame()) {
       updateTouchDirection(e.clientX, e.clientY);
     }
-  });
+
+    releaseTouchTracking();
+  }, TOUCH_EVENT_OPTS);
 
   frame.addEventListener('pointercancel', (e) => {
     if (e.pointerId !== touchPointerId) return;
-    touchActive = false;
-    touchPointerId = null;
+    releaseTouchTracking();
   });
+
+  frame.addEventListener('touchmove', (e) => {
+    if (!isTouchDeviceProfile() || !touchActive) return;
+    e.preventDefault();
+  }, TOUCH_EVENT_OPTS);
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isTouchDeviceProfile() || !touchActive) return;
+    e.preventDefault();
+  }, TOUCH_EVENT_OPTS);
 }
 
 function suggestDeviceProfile() {
@@ -842,22 +933,46 @@ function startGameMusic() {
   playCurrentTrack();
 }
 
-function stopMusic() {
+function pauseMusic() {
   if (!musicAudio) return;
   musicAudio.pause();
-  musicAudio.currentTime = 0;
+}
+
+function shouldGameMusicPlay() {
+  return settings.musicVolume > 0
+    && state === 'playing'
+    && !userPauseActive
+    && !isGameModalOpen();
+}
+
+function syncGameMusicPlayback() {
+  if (shouldGameMusicPlay()) {
+    startGameMusic();
+    return;
+  }
+  if (musicAudio?.src && !musicAudio.paused) {
+    pauseMusic();
+  }
 }
 
 function applyMusicVolume(volume) {
-  if (musicAudio) musicAudio.volume = volume;
-  if (volume <= 0) stopMusic();
+  if (volume > 0) initMusicPlayer();
+  if (!musicAudio) return;
+
+  musicAudio.volume = volume;
+  if (volume <= 0) {
+    pauseMusic();
+    return;
+  }
+
+  if (shouldGameMusicPlay() && musicAudio.src && musicAudio.paused) {
+    musicAudio.play().catch(() => {});
+  }
 }
 
 function ensureMusicRunning() {
-  if (settings.musicVolume <= 0) return;
-  if (musicAudio?.src && musicAudio.paused) {
-    musicAudio.play().catch(() => {});
-  }
+  if (!shouldGameMusicPlay()) return;
+  startGameMusic();
 }
 
 function hasSessionAllSkins() {
@@ -997,6 +1112,7 @@ function togglePause() {
     resumeAmplifyTimer();
     startGameLoops();
     updatePauseButton();
+    syncGameMusicPlayback();
     return;
   }
 
@@ -1010,6 +1126,7 @@ function togglePause() {
   pauseModal.classList.remove('hidden');
   saveProgress();
   updatePauseButton();
+  syncGameMusicPlayback();
 }
 
 function hasZeroCooldowns() {
@@ -1053,6 +1170,7 @@ function updateAbilityHud() {
     if (isAtomicBreathActive()) {
       abilityStatusEl.textContent = t('status.atomicBreathActive');
       abilityStatusEl.classList.remove('cooldown');
+      updateTouchAbilityControls();
       return;
     }
     const atomicCd = hasZeroCooldowns()
@@ -1068,13 +1186,14 @@ function updateAbilityHud() {
           GODZILLA_PULSE_COOLDOWN - (Date.now() - (abilityCooldowns['godzilla-pulse'] ?? 0))
         );
     const fStatus = atomicCd <= 0
-      ? t('status.fReady')
-      : t('status.fCooldown', { secs: Math.ceil(atomicCd / 1000) });
+      ? t(isTouchDeviceProfile() ? 'status.fReadyTouch' : 'status.fReady')
+      : t(isTouchDeviceProfile() ? 'status.fCooldownTouch' : 'status.fCooldown', { secs: Math.ceil(atomicCd / 1000) });
     const tStatus = pulseCd <= 0
-      ? t('status.tReady')
-      : t('status.tCooldown', { secs: Math.ceil(pulseCd / 1000) });
+      ? t(isTouchDeviceProfile() ? 'status.tReadyTouch' : 'status.tReady')
+      : t(isTouchDeviceProfile() ? 'status.tCooldownTouch' : 'status.tCooldown', { secs: Math.ceil(pulseCd / 1000) });
     abilityStatusEl.textContent = `${fStatus} · ${tStatus}`;
     abilityStatusEl.classList.toggle('cooldown', atomicCd > 0 && pulseCd > 0);
+    updateTouchAbilityControls();
     return;
   }
 
@@ -1087,6 +1206,7 @@ function updateAbilityHud() {
         max: POCKET_DIMENSION_MAX_APPLES,
       });
       abilityStatusEl.classList.remove('cooldown');
+      updateTouchAbilityControls();
       return;
     }
     if (isRiftAbsorbActive()) {
@@ -1096,6 +1216,7 @@ function updateAbilityHud() {
         remaining,
       });
       abilityStatusEl.classList.remove('cooldown');
+      updateTouchAbilityControls();
       return;
     }
     const pocketCd = hasZeroCooldowns()
@@ -1111,13 +1232,14 @@ function updateAbilityHud() {
           RIFT_ABSORB_COOLDOWN - (Date.now() - (abilityCooldowns['riftweaver-absorb'] ?? 0))
         );
     const fStatus = pocketCd <= 0
-      ? t('status.fReady')
-      : t('status.fCooldown', { secs: Math.ceil(pocketCd / 1000) });
+      ? t(isTouchDeviceProfile() ? 'status.fReadyTouch' : 'status.fReady')
+      : t(isTouchDeviceProfile() ? 'status.fCooldownTouch' : 'status.fCooldown', { secs: Math.ceil(pocketCd / 1000) });
     const tStatus = absorbCd <= 0
-      ? t('status.tReady')
-      : t('status.tCooldown', { secs: Math.ceil(absorbCd / 1000) });
+      ? t(isTouchDeviceProfile() ? 'status.tReadyTouch' : 'status.tReady')
+      : t(isTouchDeviceProfile() ? 'status.tCooldownTouch' : 'status.tCooldown', { secs: Math.ceil(absorbCd / 1000) });
     abilityStatusEl.textContent = `${fStatus} · ${tStatus}`;
     abilityStatusEl.classList.toggle('cooldown', pocketCd > 0 && absorbCd > 0);
+    updateTouchAbilityControls();
     return;
   }
 
@@ -1173,9 +1295,15 @@ function updateAbilityHud() {
   );
   const keyHint = getAbilityKey(ability);
   if (remaining <= 0) {
-    abilityStatusEl.textContent = hasZeroCooldowns()
-      ? t('status.noCooldownPress', { key: keyHint })
-      : t('status.readyPress', { key: keyHint });
+    if (isTouchDeviceProfile()) {
+      abilityStatusEl.textContent = hasZeroCooldowns()
+        ? t('status.noCooldownPressTouch')
+        : t('status.readyPressTouch');
+    } else {
+      abilityStatusEl.textContent = hasZeroCooldowns()
+        ? t('status.noCooldownPress', { key: keyHint })
+        : t('status.readyPress', { key: keyHint });
+    }
     abilityStatusEl.classList.remove('cooldown');
   } else {
     const secs = Math.ceil(remaining / 1000);
@@ -1222,6 +1350,7 @@ function updateAbilityHud() {
     });
     abilityStatusEl.classList.remove('cooldown');
   }
+  updateTouchAbilityControls();
 }
 
 function resetAbilityState() {
@@ -7894,6 +8023,7 @@ function openCodesModal() {
   codeError.classList.add('hidden');
   codesModal.classList.remove('hidden');
   codeInput.focus();
+  syncGameMusicPlayback();
 }
 
 function closeCodesModal() {
@@ -7906,6 +8036,7 @@ function closeCodesModal() {
     resumeAmplifyTimer();
     startGameLoops();
   }
+  syncGameMusicPlayback();
 }
 
 function openShop() {
@@ -7921,6 +8052,7 @@ function openShop() {
   if (userPauseActive) pauseModal.classList.add('hidden');
   renderShop();
   shopModal.classList.remove('hidden');
+  syncGameMusicPlayback();
 }
 
 function closeShop() {
@@ -7932,6 +8064,7 @@ function closeShop() {
     resumeAmplifyTimer();
     startGameLoops();
   }
+  syncGameMusicPlayback();
 }
 
 function openSettings() {
@@ -7954,6 +8087,7 @@ function openSettings() {
   if (languageSelect) languageSelect.value = settings.language;
   applyGameMode(settings.gameMode ?? 'normal');
   settingsModal.classList.remove('hidden');
+  syncGameMusicPlayback();
 }
 
 function closeSettings() {
@@ -7966,6 +8100,7 @@ function closeSettings() {
     resumeAmplifyTimer();
     startGameLoops();
   }
+  syncGameMusicPlayback();
 }
 
 function renderShop() {
@@ -8130,7 +8265,7 @@ musicVolumeSlider.addEventListener('input', () => {
   musicVolumeValue.textContent = `${settings.musicVolume}%`;
   applyMusicVolume(settings.musicVolume / 100);
   saveSettings();
-  if (settings.musicVolume > 0 && state === 'playing' && (!musicAudio?.src || musicAudio.paused)) {
+  if (settings.musicVolume > 0 && shouldGameMusicPlay() && !musicAudio?.src) {
     startGameMusic();
   }
 });
@@ -8172,6 +8307,9 @@ if (modeExtremeBtn) {
     saveSettings();
   });
 }
+
+if (skillPrimaryBtn) skillPrimaryBtn.addEventListener('click', usePrimaryAbility);
+if (skillSecondaryBtn) skillSecondaryBtn.addEventListener('click', useSecondaryAbility);
 
 if (settingsDevicePhoneBtn) {
   settingsDevicePhoneBtn.addEventListener('click', () => selectDeviceProfile('phone'));
@@ -8240,6 +8378,8 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
 
   if (isDevicePickerOpen()) return;
+
+  if (shouldBlockKeyboardGameControls()) return;
 
   if (!phoenixModal.classList.contains('hidden')) {
     if (key === 'y') {

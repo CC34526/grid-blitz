@@ -61,6 +61,34 @@ html {
   display: none !important;
 }
 
+html[data-device="phone"],
+html[data-device="tablet"] {
+  overscroll-behavior: none;
+}
+
+html[data-device="phone"] body,
+html[data-device="tablet"] body {
+  overflow: hidden;
+  height: 100dvh;
+  width: 100%;
+  overscroll-behavior: none;
+}
+
+html[data-device="phone"] .game-wrapper,
+html[data-device="tablet"] .game-wrapper {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+html[data-device="phone"].touch-scroll-lock,
+html[data-device="tablet"].touch-scroll-lock,
+html[data-device="phone"].touch-scroll-lock body,
+html[data-device="tablet"].touch-scroll-lock body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 html[data-device="phone"] {
   --device-wrapper-max: 100%;
   --device-body-pad-y: 4px;
@@ -300,6 +328,63 @@ html[data-theme="light"] .canvas-frame {
   border: 3px solid var(--border);
 }
 
+.ability-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ability-touch-controls {
+  display: none;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.ability-touch-controls.hidden {
+  display: none;
+}
+
+html[data-device="phone"] .ability-touch-controls:not(.hidden),
+html[data-device="tablet"] .ability-touch-controls:not(.hidden) {
+  display: flex;
+}
+
+.ability-skill-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: var(--device-btn-font, 6px);
+  padding: 8px 8px;
+  min-height: 32px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+html[data-device="phone"] .ability-skill-btn {
+  flex: 1;
+  font-size: 8px;
+  padding: 18px 10px;
+  min-height: 56px;
+}
+
+html[data-device="tablet"] .ability-skill-btn {
+  flex: 1;
+  font-size: 8px;
+  padding: 16px 12px;
+  min-height: 52px;
+}
+
+html:not([lang="en"])[data-device="phone"] .ability-skill-btn,
+html:not([lang="en"])[data-device="tablet"] .ability-skill-btn {
+  font-family: var(--ui-font);
+  font-weight: 700;
+  font-size: var(--ui-sm);
+  line-height: var(--ui-lh);
+}
+
 .bots-hud {
   border: 3px solid var(--snake-head);
 }
@@ -422,6 +507,13 @@ html[data-device="tablet"] .canvas-frame {
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+
+html[data-device="phone"] #game,
+html[data-device="tablet"] #game,
+html[data-device="phone"] .canvas-frame .overlay,
+html[data-device="tablet"] .canvas-frame .overlay {
+  touch-action: none;
 }
 
 .canvas-frame {
