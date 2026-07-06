@@ -28,6 +28,7 @@ const TRANSLATIONS = {
       resume: 'RESUME',
       paused: 'PAUSED',
       pressPResume: 'PRESS P TO RESUME',
+      tapToResume: 'TAP PAUSE TO RESUME',
       ability: 'ABILITY',
       ready: 'READY',
       dash: '—',

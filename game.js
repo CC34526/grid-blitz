@@ -594,6 +594,12 @@ function updateDeviceInputUI() {
 
   if (skillPrimaryBtn) skillPrimaryBtn.textContent = t('ui.skillPrimary');
   if (skillSecondaryBtn) skillSecondaryBtn.textContent = t('ui.skillSecondary');
+
+  const pauseHint = document.querySelector('#pause-modal .overlay-hint');
+  if (pauseHint) {
+    pauseHint.textContent = t(touch ? 'ui.tapToResume' : 'ui.pressPResume');
+  }
+
   updateTouchAbilityControls();
 }
 
@@ -682,6 +688,7 @@ function updateTouchDirection(clientX, clientY) {
 
 function canTouchStartOrRestart() {
   if (isDevicePickerOpen()) return false;
+  if (botsModeModal && !botsModeModal.classList.contains('hidden')) return false;
   if (!phoenixModal.classList.contains('hidden')) return false;
   if (!detonatorModal.classList.contains('hidden')) return false;
   if (pauseModal && !pauseModal.classList.contains('hidden')) return false;
@@ -802,17 +809,23 @@ function showDevicePicker() {
   highlightDevicePickerChoices();
   deviceModal.classList.remove('hidden');
   updatePauseButton();
+  if (isTouchDeviceProfile()) setTouchScrollLock(true);
 }
 
 function closeDevicePicker() {
   if (!deviceModal) return;
   deviceModal.classList.add('hidden');
   updatePauseButton();
+  if (isTouchDeviceProfile()) setTouchScrollLock(false);
 }
 
 function selectDeviceProfile(profile) {
   if (!applyDeviceProfile(profile, { persist: true })) return;
   closeDevicePicker();
+  if (state === 'playing' && !userPauseActive && !isGameModalOpen()) {
+    startGameLoops();
+    syncGameMusicPlayback();
+  }
 }
 
 function isDevicePickerOpen() {
@@ -1157,6 +1170,9 @@ function formatAbilityLabel(skinId) {
 }
 
 function updateAbilityHud() {
+  if (!abilityNameEl || !abilityStatusEl) return;
+
+  try {
   const ability = SKIN_ABILITIES[selectedSkin];
   if (!ability) {
     abilityNameEl.textContent = `${t('ui.ability')}: ${t('ui.dash')}`;
@@ -1170,7 +1186,6 @@ function updateAbilityHud() {
     if (isAtomicBreathActive()) {
       abilityStatusEl.textContent = t('status.atomicBreathActive');
       abilityStatusEl.classList.remove('cooldown');
-      updateTouchAbilityControls();
       return;
     }
     const atomicCd = hasZeroCooldowns()
@@ -1193,7 +1208,6 @@ function updateAbilityHud() {
       : t(isTouchDeviceProfile() ? 'status.tCooldownTouch' : 'status.tCooldown', { secs: Math.ceil(pulseCd / 1000) });
     abilityStatusEl.textContent = `${fStatus} · ${tStatus}`;
     abilityStatusEl.classList.toggle('cooldown', atomicCd > 0 && pulseCd > 0);
-    updateTouchAbilityControls();
     return;
   }
 
@@ -1206,7 +1220,6 @@ function updateAbilityHud() {
         max: POCKET_DIMENSION_MAX_APPLES,
       });
       abilityStatusEl.classList.remove('cooldown');
-      updateTouchAbilityControls();
       return;
     }
     if (isRiftAbsorbActive()) {
@@ -1216,7 +1229,6 @@ function updateAbilityHud() {
         remaining,
       });
       abilityStatusEl.classList.remove('cooldown');
-      updateTouchAbilityControls();
       return;
     }
     const pocketCd = hasZeroCooldowns()
@@ -1239,7 +1251,6 @@ function updateAbilityHud() {
       : t(isTouchDeviceProfile() ? 'status.tCooldownTouch' : 'status.tCooldown', { secs: Math.ceil(absorbCd / 1000) });
     abilityStatusEl.textContent = `${fStatus} · ${tStatus}`;
     abilityStatusEl.classList.toggle('cooldown', pocketCd > 0 && absorbCd > 0);
-    updateTouchAbilityControls();
     return;
   }
 
@@ -1350,7 +1361,9 @@ function updateAbilityHud() {
     });
     abilityStatusEl.classList.remove('cooldown');
   }
-  updateTouchAbilityControls();
+  } finally {
+    updateTouchAbilityControls();
+  }
 }
 
 function resetAbilityState() {
@@ -3708,7 +3721,7 @@ function launchAppleHuntMode() {
   resizeGameLayout();
   render();
   startGameLoops();
-  startGameMusic();
+  syncGameMusicPlayback();
 }
 
 function launchCobraBattleMode() {
@@ -7988,7 +8001,7 @@ function startGame() {
   activateAmplifyIfPending();
   render();
   startGameLoops();
-  startGameMusic();
+  syncGameMusicPlayback();
   saveProgress();
 }
 
@@ -8004,8 +8017,9 @@ function resumeGame() {
   settingsModal.classList.add('hidden');
   activateAmplifyIfPending();
   render();
+  if (isDevicePickerOpen()) return;
   startGameLoops();
-  startGameMusic();
+  syncGameMusicPlayback();
 }
 
 function openCodesModal() {
@@ -8061,6 +8075,7 @@ function closeShop() {
     pauseModal.classList.remove('hidden');
   } else if (state === 'paused') {
     state = 'playing';
+    activateAmplifyIfPending();
     resumeAmplifyTimer();
     startGameLoops();
   }
@@ -8097,6 +8112,7 @@ function closeSettings() {
     pauseModal.classList.remove('hidden');
   } else if (state === 'paused') {
     state = 'playing';
+    activateAmplifyIfPending();
     resumeAmplifyTimer();
     startGameLoops();
   }
@@ -8513,8 +8529,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     freezeAmplifyTimer();
     saveProgressNow();
+    syncGameMusicPlayback();
   } else if (state === 'playing') {
     resumeAmplifyTimer();
+    syncGameMusicPlayback();
   }
 });
 
