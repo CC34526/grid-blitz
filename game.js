@@ -77,7 +77,7 @@ const SAVE_KEY = 'pixelSnakeSave';
 const SAVE_VERSION = 1;
 const AUTO_SAVE_MS = 15000;
 const SETTINGS_KEY = 'pixelSnakeSettings';
-const DEFAULT_SETTINGS = { musicVolume: 50, theme: 'dark', language: 'en', gameMode: 'normal', deviceProfile: null };
+const DEFAULT_SETTINGS = { musicVolume: 20, theme: 'dark', language: 'en', gameMode: 'normal', deviceProfile: null };
 const DEVICE_PROFILES = ['phone', 'tablet', 'computer'];
 const SPEED_MODE_EASY_MULT = 1.35;
 const SPEED_MODE_HARD_MULT = 0.69;
@@ -88,6 +88,11 @@ const MUSIC_TRACKS = [
   'Venom Coil Run (1).mp3',
   'Venom Coil Run (2).mp3',
 ];
+const SFX_EAT = 'eat.mp3';
+const SFX_BOMB = 'explosion.mp3';
+const SFX_EAT_VOLUME = 0.34;
+const SFX_BOMB_VOLUME = 0.52;
+const SFX_MAX_VOLUME = 0.58;
 const REDEEM_CODE = 'artificial';
 const PYTHON_CODE = 'python';
 const AGGREGATE_CODE = 'aggregate';
@@ -986,6 +991,37 @@ function applyMusicVolume(volume) {
 function ensureMusicRunning() {
   if (!shouldGameMusicPlay()) return;
   startGameMusic();
+}
+
+function getSfxVolume(baseVolume) {
+  if (settings.musicVolume <= 0) return 0;
+  return Math.min(SFX_MAX_VOLUME, (settings.musicVolume / 100) * baseVolume);
+}
+
+function playSfx(file, baseVolume) {
+  const volume = getSfxVolume(baseVolume);
+  if (volume <= 0) return;
+
+  const audio = new Audio(encodeURI(file));
+  audio.volume = volume;
+  audio.play().catch(() => {});
+}
+
+function playPlayerEatSfx(itemType) {
+  if (itemType === 'bomb') {
+    playSfx(SFX_BOMB, SFX_BOMB_VOLUME);
+    return;
+  }
+  if (itemType === 'normal' || itemType === 'golden' || itemType === 'black') {
+    playSfx(SFX_EAT, SFX_EAT_VOLUME);
+  }
+}
+
+function preloadSfx() {
+  [SFX_EAT, SFX_BOMB].forEach((file) => {
+    const audio = new Audio(encodeURI(file));
+    audio.preload = 'auto';
+  });
 }
 
 function hasSessionAllSkins() {
@@ -3353,6 +3389,8 @@ function stepBotsPlayerMove() {
   snake.unshift(newHead);
 
   if (willEat) {
+    const eaten = apples[itemIndex];
+    playPlayerEatSfx(eaten.type);
     apples.splice(itemIndex, 1);
     addBotsApple(selectedSkin === 'lucky' ? { skinId: 'lucky' } : null);
     growSnakeByAppleEat(selectedSkin, 1);
@@ -7906,6 +7944,7 @@ function update() {
 
   if (itemIndex !== -1) {
     const eaten = apples[itemIndex];
+    playPlayerEatSfx(eaten.type);
 
     if (eaten.type === 'black') {
       if (!isIronclad()) {
@@ -8541,6 +8580,7 @@ initProgressState();
 const hasSavedGame = loadProgress();
 populateLanguageSelect();
 loadSettings();
+preloadSfx();
 showDevicePicker();
 updatePlayModeUI();
 initTouchControls();
