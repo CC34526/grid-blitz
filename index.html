@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=32">
 </head>
 <body>
   <div class="game-wrapper">
@@ -193,6 +193,14 @@
         </div>
       </div>
       <div class="settings-row">
+        <span class="settings-label" data-i18n="ui.deviceType">DEVICE</span>
+        <div class="device-toggle">
+          <button id="settings-device-phone" class="device-btn" type="button" data-i18n="ui.devicePhone">PHONE</button>
+          <button id="settings-device-tablet" class="device-btn" type="button" data-i18n="ui.deviceTablet">TABLET</button>
+          <button id="settings-device-computer" class="device-btn" type="button" data-i18n="ui.deviceComputer">COMPUTER</button>
+        </div>
+      </div>
+      <div class="settings-row">
         <label class="settings-label" for="language-select" data-i18n="ui.language">LANGUAGE</label>
         <select id="language-select" class="language-select" data-i18n-aria="ui.language" aria-label="Language">
         </select>
@@ -200,7 +208,30 @@
     </div>
   </div>
 
-  <script src="i18n.js?v=31"></script>
-  <script src="game.js?v=107"></script>
+  <div id="device-modal" class="shop-modal hidden">
+    <div class="shop-panel device-panel">
+      <div class="shop-header">
+        <h2 data-i18n="ui.deviceTitle">YOUR DEVICE</h2>
+      </div>
+      <p class="shop-subtitle" data-i18n="ui.deviceSubtitle">Pick how you're playing so the game fits your screen.</p>
+      <div class="device-choices">
+        <button id="device-phone-btn" class="device-choice-btn" type="button" data-device="phone">
+          <span class="device-choice-icon" aria-hidden="true">📱</span>
+          <span class="device-choice-name" data-i18n="ui.devicePhone">PHONE</span>
+        </button>
+        <button id="device-tablet-btn" class="device-choice-btn" type="button" data-device="tablet">
+          <span class="device-choice-icon device-icon-tablet" aria-hidden="true"></span>
+          <span class="device-choice-name" data-i18n="ui.deviceTablet">TABLET</span>
+        </button>
+        <button id="device-computer-btn" class="device-choice-btn" type="button" data-device="computer">
+          <span class="device-choice-icon" aria-hidden="true">💻</span>
+          <span class="device-choice-name" data-i18n="ui.deviceComputer">COMPUTER</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="i18n.js?v=35"></script>
+  <script src="game.js?v=113"></script>
 </body>
 </html>

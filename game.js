@@ -60,6 +60,13 @@ const botsHud = document.getElementById('bots-hud');
 const botsRankEl = document.getElementById('bots-rank');
 const botsLengthEl = document.getElementById('bots-length');
 const botsTimerEl = document.getElementById('bots-timer');
+const deviceModal = document.getElementById('device-modal');
+const devicePhoneBtn = document.getElementById('device-phone-btn');
+const deviceTabletBtn = document.getElementById('device-tablet-btn');
+const deviceComputerBtn = document.getElementById('device-computer-btn');
+const settingsDevicePhoneBtn = document.getElementById('settings-device-phone');
+const settingsDeviceTabletBtn = document.getElementById('settings-device-tablet');
+const settingsDeviceComputerBtn = document.getElementById('settings-device-computer');
 const hazardBoard = document.querySelector('.hazard-board');
 const abilityHud = document.getElementById('ability-hud');
 
@@ -67,7 +74,8 @@ const SAVE_KEY = 'pixelSnakeSave';
 const SAVE_VERSION = 1;
 const AUTO_SAVE_MS = 15000;
 const SETTINGS_KEY = 'pixelSnakeSettings';
-const DEFAULT_SETTINGS = { musicVolume: 50, theme: 'dark', language: 'en', gameMode: 'normal' };
+const DEFAULT_SETTINGS = { musicVolume: 50, theme: 'dark', language: 'en', gameMode: 'normal', deviceProfile: null };
+const DEVICE_PROFILES = ['phone', 'tablet', 'computer'];
 const SPEED_MODE_EASY_MULT = 1.35;
 const SPEED_MODE_HARD_MULT = 0.69;
 const SPEED_MODE_EXTREME_MULT = 0.28;
@@ -198,6 +206,7 @@ const BOTS_SUB_MODE_APPLE_HUNT = 'apple-hunt';
 const BOTS_SUB_MODE_COBRAS = 'cobra-battle';
 const BOTS_APPLE_HUNT_DURATION_MS = 60000;
 const MULTIPLAYER_BANNED_SKINS = new Set(['ironclad', 'riftweaver']);
+const TEMPORARILY_DISABLED_SKINS = new Set(['ironclad']);
 const BOTS_PALETTE = [
   { body: '#e43b44', head: '#ffcd75', dark: '#a22633', name: 'Crimson' },
   { body: '#3b5dc9', head: '#a8d8ff', dark: '#29366f', name: 'Azure' },
@@ -501,6 +510,222 @@ function loadSettings() {
   if (languageSelect) languageSelect.value = settings.language;
   applyGameMode(settings.gameMode ?? 'normal');
   applyMusicVolume(settings.musicVolume / 100);
+  if (settings.deviceProfile) {
+    applyDeviceProfile(settings.deviceProfile);
+  } else {
+    updateDeviceToggleUI();
+  }
+}
+
+function readDeviceCssPx(name, fallback) {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeDeviceProfile(profile) {
+  return DEVICE_PROFILES.includes(profile) ? profile : null;
+}
+
+function updateDeviceToggleUI() {
+  const profile = settings.deviceProfile;
+  if (settingsDevicePhoneBtn) {
+    settingsDevicePhoneBtn.classList.toggle('active', profile === 'phone');
+  }
+  if (settingsDeviceTabletBtn) {
+    settingsDeviceTabletBtn.classList.toggle('active', profile === 'tablet');
+  }
+  if (settingsDeviceComputerBtn) {
+    settingsDeviceComputerBtn.classList.toggle('active', profile === 'computer');
+  }
+}
+
+function applyDeviceProfile(profile, { persist = false } = {}) {
+  const normalized = normalizeDeviceProfile(profile);
+  if (!normalized) return false;
+
+  settings.deviceProfile = normalized;
+  document.documentElement.dataset.device = normalized;
+  updateDeviceToggleUI();
+  updateDeviceInputUI();
+  if (persist) saveSettings();
+  requestAnimationFrame(() => resizeGameLayout());
+  return true;
+}
+
+function isTouchDeviceProfile() {
+  return settings.deviceProfile === 'phone' || settings.deviceProfile === 'tablet';
+}
+
+function updateDeviceInputUI() {
+  const touch = isTouchDeviceProfile();
+  const startHint = document.querySelector('#start-screen .overlay-hint');
+  const restartHint = document.querySelector('#overlay .overlay-hint');
+  const controlsHint = document.querySelector('#start-screen .controls-hint');
+
+  if (startHint) {
+    startHint.textContent = t(touch ? 'ui.tapToStart' : 'ui.pressSpaceStart');
+  }
+  if (restartHint) {
+    restartHint.textContent = t(touch ? 'ui.tapToRestart' : 'ui.pressSpaceRestart');
+  }
+  if (controlsHint) {
+    controlsHint.classList.toggle('hidden', touch);
+  }
+}
+
+const TOUCH_TAP_MAX_PX = 16;
+const TOUCH_DIR_MIN_PX = 16;
+let touchActive = false;
+let touchMoved = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchAnchorX = 0;
+let touchAnchorY = 0;
+let touchPointerId = null;
+
+function canTouchControlGame() {
+  return state === 'playing' && !userPauseActive && !isGameModalOpen();
+}
+
+function queueTouchDirection(dx, dy) {
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  if (absX < TOUCH_DIR_MIN_PX && absY < TOUCH_DIR_MIN_PX) return false;
+
+  const move = absX >= absY
+    ? { x: dx > 0 ? 1 : -1, y: 0 }
+    : { x: 0, y: dy > 0 ? 1 : -1 };
+
+  const heading = direction || nextDirection || { x: 1, y: 0 };
+  const isReverse = move.x === -heading.x && move.y === -heading.y;
+  if (isReverse) return false;
+  if (nextDirection.x === move.x && nextDirection.y === move.y) return false;
+
+  nextDirection = move;
+  return true;
+}
+
+function updateTouchDirection(clientX, clientY) {
+  const dx = clientX - touchAnchorX;
+  const dy = clientY - touchAnchorY;
+  if (queueTouchDirection(dx, dy)) {
+    touchAnchorX = clientX;
+    touchAnchorY = clientY;
+  }
+}
+
+function canTouchStartOrRestart() {
+  if (isDevicePickerOpen()) return false;
+  if (!phoenixModal.classList.contains('hidden')) return false;
+  if (!detonatorModal.classList.contains('hidden')) return false;
+  if (pauseModal && !pauseModal.classList.contains('hidden')) return false;
+  if (!shopModal.classList.contains('hidden')) return false;
+  if (!codesModal.classList.contains('hidden')) return false;
+  if (!settingsModal.classList.contains('hidden')) return false;
+  return state === 'over' || state === 'waiting';
+}
+
+function initTouchControls() {
+  const frame = document.querySelector('.canvas-frame');
+  if (!frame) return;
+
+  frame.addEventListener('pointerdown', (e) => {
+    if (!isTouchDeviceProfile()) return;
+    touchActive = true;
+    touchMoved = false;
+    touchStartX = e.clientX;
+    touchStartY = e.clientY;
+    touchAnchorX = e.clientX;
+    touchAnchorY = e.clientY;
+    touchPointerId = e.pointerId;
+    if (frame.setPointerCapture) frame.setPointerCapture(e.pointerId);
+  });
+
+  frame.addEventListener('pointermove', (e) => {
+    if (!touchActive || e.pointerId !== touchPointerId) return;
+    if (!isTouchDeviceProfile()) return;
+
+    const totalDx = e.clientX - touchStartX;
+    const totalDy = e.clientY - touchStartY;
+    if (Math.hypot(totalDx, totalDy) > TOUCH_TAP_MAX_PX) {
+      touchMoved = true;
+    }
+
+    if (canTouchControlGame()) {
+      updateTouchDirection(e.clientX, e.clientY);
+    }
+  }, { passive: true });
+
+  frame.addEventListener('pointerup', (e) => {
+    if (!touchActive || e.pointerId !== touchPointerId) return;
+    touchActive = false;
+    touchPointerId = null;
+    if (frame.releasePointerCapture && frame.hasPointerCapture(e.pointerId)) {
+      frame.releasePointerCapture(e.pointerId);
+    }
+
+    if (!isTouchDeviceProfile()) return;
+
+    if (!touchMoved) {
+      const dx = e.clientX - touchStartX;
+      const dy = e.clientY - touchStartY;
+      if (Math.hypot(dx, dy) <= TOUCH_TAP_MAX_PX && canTouchStartOrRestart()) {
+        startGame();
+      }
+      return;
+    }
+
+    if (canTouchControlGame()) {
+      updateTouchDirection(e.clientX, e.clientY);
+    }
+  });
+
+  frame.addEventListener('pointercancel', (e) => {
+    if (e.pointerId !== touchPointerId) return;
+    touchActive = false;
+    touchPointerId = null;
+  });
+}
+
+function suggestDeviceProfile() {
+  const ua = navigator.userAgent || '';
+  const width = window.innerWidth;
+  if (/iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua)) return 'tablet';
+  if (/Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return 'phone';
+  if (width >= 768 && width <= 1100 && navigator.maxTouchPoints > 0) return 'tablet';
+  if (width < 640) return 'phone';
+  return 'computer';
+}
+
+function highlightDevicePickerChoices() {
+  const highlight = settings.deviceProfile || suggestDeviceProfile();
+  [devicePhoneBtn, deviceTabletBtn, deviceComputerBtn].forEach((btn) => {
+    if (!btn) return;
+    btn.classList.toggle('suggested', btn.dataset.device === highlight);
+  });
+}
+
+function showDevicePicker() {
+  if (!deviceModal) return;
+  highlightDevicePickerChoices();
+  deviceModal.classList.remove('hidden');
+  updatePauseButton();
+}
+
+function closeDevicePicker() {
+  if (!deviceModal) return;
+  deviceModal.classList.add('hidden');
+  updatePauseButton();
+}
+
+function selectDeviceProfile(profile) {
+  if (!applyDeviceProfile(profile, { persist: true })) return;
+  closeDevicePicker();
+}
+
+function isDevicePickerOpen() {
+  return deviceModal && !deviceModal.classList.contains('hidden');
 }
 
 function applyGameMode(mode) {
@@ -649,6 +874,9 @@ function applyProgressDisplay() {
     coins = baseCoins;
     unlockedSkins = [...baseUnlockedSkins];
   }
+  if (isSkinTemporarilyDisabled(selectedSkin)) {
+    selectedSkin = 'classic';
+  }
 }
 
 function getAbilityKey(ability) {
@@ -710,6 +938,10 @@ function isSkinBannedInMultiplayer(skinId) {
   return MULTIPLAYER_BANNED_SKINS.has(skinId);
 }
 
+function isSkinTemporarilyDisabled(skinId) {
+  return TEMPORARILY_DISABLED_SKINS.has(skinId);
+}
+
 function resolveMultiplayerSkin() {
   const playable = unlockedSkins.filter((id) => !isSkinBannedInMultiplayer(id));
   if (playable.includes('classic')) return 'classic';
@@ -733,7 +965,8 @@ function isGameModalOpen() {
   return (shopModal && !shopModal.classList.contains('hidden'))
     || (codesModal && !codesModal.classList.contains('hidden'))
     || (settingsModal && !settingsModal.classList.contains('hidden'))
-    || (botsModeModal && !botsModeModal.classList.contains('hidden'));
+    || (botsModeModal && !botsModeModal.classList.contains('hidden'))
+    || isDevicePickerOpen();
 }
 
 function isTypingInField() {
@@ -1342,6 +1575,7 @@ function normalizeUnlockedSkins(list) {
 }
 
 function resolveSelectedSkin(savedSkin, unlocked) {
+  if (savedSkin && isSkinTemporarilyDisabled(savedSkin)) return 'classic';
   if (savedSkin && unlocked.includes(savedSkin)) return savedSkin;
   return unlocked[0] ?? 'classic';
 }
@@ -4071,11 +4305,13 @@ function getViewportInsets() {
 }
 
 function getMaxCanvasPx() {
+  const windowedMax = readDeviceCssPx('--device-max-canvas-windowed', MAX_CANVAS_WINDOWED_PX);
+  const fullscreenMax = readDeviceCssPx('--device-max-canvas-fullscreen', MAX_CANVAS_FULLSCREEN_PX);
   if (isBrowserFullscreen()) {
     const viewportMin = Math.min(window.innerWidth, window.innerHeight);
-    return Math.min(MAX_CANVAS_FULLSCREEN_PX, Math.floor(viewportMin * 0.78));
+    return Math.min(fullscreenMax, Math.floor(viewportMin * 0.78));
   }
-  return MAX_CANVAS_WINDOWED_PX;
+  return windowedMax;
 }
 
 function resizeGameLayout() {
@@ -4101,7 +4337,8 @@ function resizeGameLayout() {
   const availableW = Math.floor(viewportW - framePadX - 16);
   const availableH = Math.floor(viewportH - chromeH);
   const maxCanvas = getMaxCanvasPx();
-  const size = Math.max(MIN_CANVAS_PX, Math.min(availableW, availableH, maxCanvas));
+  const minCanvas = readDeviceCssPx('--device-min-canvas', MIN_CANVAS_PX);
+  const size = Math.max(minCanvas, Math.min(availableW, availableH, maxCanvas));
 
   if (canvas.width !== size) {
     canvas.width = size;
@@ -7736,13 +7973,14 @@ function renderShop() {
   shopGrid.innerHTML = '';
 
   SKINS.forEach((skin) => {
+    const disabled = isSkinTemporarilyDisabled(skin.id);
     const owned = unlockedSkins.includes(skin.id);
-    const equipped = selectedSkin === skin.id;
-    const canBuy = !owned && coins >= skin.cost;
+    const equipped = !disabled && selectedSkin === skin.id;
+    const canBuy = !disabled && !owned && coins >= skin.cost;
     const mpBanned = isSkinBannedInMultiplayer(skin.id);
 
     const card = document.createElement('div');
-    card.className = 'skin-card' + (equipped ? ' equipped' : '');
+    card.className = 'skin-card' + (equipped ? ' equipped' : '') + (disabled ? ' skin-card-disabled' : '');
 
     const preview = document.createElement('div');
     preview.className = 'skin-preview';
@@ -7758,23 +7996,29 @@ function renderShop() {
     name.textContent = getSkinName(skin.id);
 
     const cost = document.createElement('p');
-    cost.className = 'skin-cost';
-    cost.textContent = skin.cost === 0
-      ? t('shop.free')
-      : t('shop.coins', { count: skin.cost });
+    cost.className = 'skin-cost' + (disabled ? ' skin-cost-disabled' : '');
+    cost.textContent = disabled
+      ? t('shop.temporarilyLocked')
+      : skin.cost === 0
+        ? t('shop.free')
+        : t('shop.coins', { count: skin.cost });
 
     const ability = document.createElement('p');
     ability.className = 'skin-ability';
     ability.textContent = getAbilityDesc(skin.id) ?? '';
 
     const mpNote = document.createElement('p');
-    if (mpBanned) {
+    if (mpBanned && !disabled) {
       mpNote.className = 'skin-mp-note';
       mpNote.textContent = t('shop.singlePlayerOnly');
     }
 
     const btn = document.createElement('button');
-    if (equipped) {
+    if (disabled) {
+      btn.textContent = t('shop.temporarilyLocked');
+      btn.className = 'owned-btn';
+      btn.disabled = true;
+    } else if (equipped) {
       btn.textContent = t('shop.equipped');
       btn.className = 'owned-btn';
       btn.disabled = true;
@@ -7797,7 +8041,7 @@ function renderShop() {
     }
 
     const cardParts = [preview, name, cost, ability];
-    if (mpBanned) cardParts.push(mpNote);
+    if (mpBanned && !disabled) cardParts.push(mpNote);
     cardParts.push(btn);
     card.append(...cardParts);
     shopGrid.appendChild(card);
@@ -7805,6 +8049,7 @@ function renderShop() {
 }
 
 function buySkin(skinId) {
+  if (isSkinTemporarilyDisabled(skinId)) return;
   const skin = SKINS.find((s) => s.id === skinId);
   if (!skin || unlockedSkins.includes(skinId) || coins < skin.cost) return;
 
@@ -7825,6 +8070,7 @@ function buySkin(skinId) {
 }
 
 function equipSkin(skinId) {
+  if (isSkinTemporarilyDisabled(skinId)) return;
   if (!unlockedSkins.includes(skinId)) return;
   if (isBotsMode() && isSkinBannedInMultiplayer(skinId)) return;
   selectedSkin = skinId;
@@ -7927,6 +8173,19 @@ if (modeExtremeBtn) {
   });
 }
 
+if (settingsDevicePhoneBtn) {
+  settingsDevicePhoneBtn.addEventListener('click', () => selectDeviceProfile('phone'));
+}
+if (settingsDeviceTabletBtn) {
+  settingsDeviceTabletBtn.addEventListener('click', () => selectDeviceProfile('tablet'));
+}
+if (settingsDeviceComputerBtn) {
+  settingsDeviceComputerBtn.addEventListener('click', () => selectDeviceProfile('computer'));
+}
+if (devicePhoneBtn) devicePhoneBtn.addEventListener('click', () => selectDeviceProfile('phone'));
+if (deviceTabletBtn) deviceTabletBtn.addEventListener('click', () => selectDeviceProfile('tablet'));
+if (deviceComputerBtn) deviceComputerBtn.addEventListener('click', () => selectDeviceProfile('computer'));
+
 if (languageSelect) {
   languageSelect.addEventListener('change', () => {
     settings.language = languageSelect.value;
@@ -7937,6 +8196,7 @@ if (languageSelect) {
 
 window.onLanguageChange = () => {
   updatePlayModeUI();
+  updateDeviceInputUI();
   updatePauseButton();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -7978,6 +8238,8 @@ document.addEventListener('keydown', ensureMusicRunning);
 
 document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
+
+  if (isDevicePickerOpen()) return;
 
   if (!phoenixModal.classList.contains('hidden')) {
     if (key === 'y') {
@@ -8121,7 +8383,9 @@ initProgressState();
 const hasSavedGame = loadProgress();
 populateLanguageSelect();
 loadSettings();
+showDevicePicker();
 updatePlayModeUI();
+initTouchControls();
 resizeGameLayout();
 initLayoutObserver();
 updateHud();

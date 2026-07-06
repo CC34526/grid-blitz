@@ -61,6 +61,54 @@ html {
   display: none !important;
 }
 
+html[data-device="phone"] {
+  --device-wrapper-max: 100%;
+  --device-body-pad-y: 4px;
+  --device-body-pad-x: 8px;
+  --device-hud-title: 11px;
+  --device-btn-font: 7px;
+  --device-footer-font: 5px;
+  --device-max-canvas-windowed: 9999px;
+  --device-max-canvas-fullscreen: 440px;
+  --device-min-canvas: 220px;
+}
+
+html[data-device="tablet"] {
+  --device-wrapper-max: 580px;
+  --device-body-pad-y: 8px;
+  --device-body-pad-x: 12px;
+  --device-hud-title: 12px;
+  --device-btn-font: 7px;
+  --device-footer-font: 6px;
+  --device-max-canvas-windowed: 560px;
+  --device-max-canvas-fullscreen: 760px;
+  --device-min-canvas: 260px;
+}
+
+html[data-device="computer"] {
+  --device-wrapper-max: 720px;
+  --device-body-pad-y: 8px;
+  --device-body-pad-x: 12px;
+  --device-hud-title: 13px;
+  --device-btn-font: 7px;
+  --device-footer-font: 6px;
+  --device-max-canvas-windowed: 640px;
+  --device-max-canvas-fullscreen: 900px;
+  --device-min-canvas: 280px;
+}
+
+html:not([data-device]) {
+  --device-wrapper-max: 720px;
+  --device-body-pad-y: 8px;
+  --device-body-pad-x: 12px;
+  --device-hud-title: 13px;
+  --device-btn-font: 7px;
+  --device-footer-font: 6px;
+  --device-max-canvas-windowed: 640px;
+  --device-max-canvas-fullscreen: 900px;
+  --device-min-canvas: 280px;
+}
+
 body {
   min-height: 100dvh;
   display: flex;
@@ -72,7 +120,7 @@ body {
     radial-gradient(circle at 80% 70%, rgba(56, 183, 100, 0.15) 0%, transparent 50%);
   font-family: 'Press Start 2P', monospace;
   color: var(--text);
-  padding: 8px 12px;
+  padding: var(--device-body-pad-y, 8px) var(--device-body-pad-x, 12px);
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -81,7 +129,8 @@ body {
   display: flex;
   flex-direction: column;
   width: min(100%, var(--game-width));
-  max-height: calc(100dvh - 16px);
+  max-width: min(100%, var(--device-wrapper-max, 720px));
+  max-height: calc(100dvh - var(--device-body-pad-y, 8px) * 2);
   margin: auto;
   flex: 0 0 auto;
   gap: 8px;
@@ -116,7 +165,7 @@ body {
 
 .hud h1 {
   grid-area: title;
-  font-size: 13px;
+  font-size: var(--device-hud-title, 13px);
   color: var(--snake-head);
   text-shadow: 2px 2px 0 var(--snake-dark);
   letter-spacing: 1px;
@@ -304,6 +353,44 @@ html[data-theme="light"] .canvas-frame {
   color: var(--snake-head);
 }
 
+.hud-actions .pixel-btn {
+  font-size: var(--device-btn-font, 8px);
+  padding: 8px 10px;
+}
+
+html[data-device="phone"] .hud-actions,
+html[data-device="tablet"] .hud-actions {
+  gap: 5px;
+}
+
+html[data-device="phone"] .hud-actions .pixel-btn {
+  font-size: var(--device-btn-font, 7px);
+  padding: 8px 6px;
+  min-height: 32px;
+}
+
+html[data-device="tablet"] .hud-actions .pixel-btn {
+  font-size: var(--device-btn-font, 7px);
+  padding: 8px 8px;
+  min-height: 34px;
+}
+
+html[data-device="phone"] .hud-stats {
+  gap: 12px;
+}
+
+html[data-device="phone"] .score-board .label,
+html[data-device="phone"] .coin-board .label,
+html[data-device="phone"] .hazard-board .label {
+  font-size: 6px;
+}
+
+html[data-device="phone"] #score,
+html[data-device="phone"] #coins,
+html[data-device="phone"] #hazard-hits {
+  font-size: 10px;
+}
+
 .pixel-btn {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;
@@ -328,6 +415,13 @@ html[data-theme="light"] .canvas-frame {
 .pixel-btn.small {
   font-size: 8px;
   padding: 6px 8px;
+}
+
+html[data-device="phone"] .canvas-frame,
+html[data-device="tablet"] .canvas-frame {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .canvas-frame {
@@ -428,11 +522,15 @@ html[data-theme="light"] .canvas-frame {
   justify-content: center;
   align-content: center;
   gap: 4px 14px;
-  font-size: 6px;
+  font-size: var(--device-footer-font, 6px);
   color: var(--text-dim);
   letter-spacing: 0.4px;
   text-align: center;
   line-height: 1.7;
+}
+
+#device-modal {
+  z-index: 110;
 }
 
 .shop-modal {
@@ -513,6 +611,14 @@ html[data-theme="light"] .canvas-frame {
 .skin-card.equipped {
   border-color: var(--snake-head);
   box-shadow: 0 0 8px rgba(167, 240, 112, 0.3);
+}
+
+.skin-card-disabled {
+  opacity: 0.72;
+}
+
+.skin-cost-disabled {
+  color: var(--text-dim);
 }
 
 .skin-preview {
@@ -1040,6 +1146,130 @@ html:not([lang="en"]) .mode-btn {
   box-shadow: 0 0 8px rgba(167, 240, 112, 0.25);
 }
 
+.device-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.device-btn {
+  flex: 1 1 calc(33.333% - 6px);
+  min-width: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  padding: 10px 4px;
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 3px solid var(--border);
+  cursor: pointer;
+  line-height: 1.6;
+}
+
+.device-btn:hover {
+  background: var(--btn-hover);
+}
+
+.device-btn.active {
+  color: var(--snake-head);
+  border-color: var(--snake-head);
+  box-shadow: 0 0 8px rgba(167, 240, 112, 0.25);
+}
+
+html:not([lang="en"]) .device-btn {
+  font-family: var(--ui-font);
+  font-weight: 600;
+  font-size: calc(var(--ui-sm) - 1px);
+  padding: 10px 6px;
+}
+
+.device-panel {
+  max-width: 460px;
+}
+
+.device-choices {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (min-width: 520px) {
+  .device-choices {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.device-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+  padding: 16px 10px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px;
+  background: var(--bg);
+  color: var(--text-dim);
+  border: 3px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.05s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.device-choice-btn:hover {
+  background: var(--btn-hover);
+  transform: translateY(-1px);
+}
+
+.device-choice-btn.suggested {
+  border-color: var(--coin);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.22);
+}
+
+.device-choice-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.device-icon-tablet {
+  display: block;
+  width: 46px;
+  height: 34px;
+  font-size: 0;
+  background: var(--panel);
+  border: 3px solid var(--text-dim);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 2px var(--bg-dark),
+    inset 0 -8px 0 rgba(0, 0, 0, 0.18);
+  position: relative;
+}
+
+.device-icon-tablet::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--border-light);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.device-choice-name {
+  text-align: center;
+  line-height: 1.6;
+}
+
+html:not([lang="en"]) .device-choice-btn,
+html:not([lang="en"]) .device-choice-name {
+  font-family: var(--ui-font);
+  font-weight: 600;
+  font-size: var(--ui-sm);
+}
+
 .language-select {
   width: 100%;
   font-family: 'Press Start 2P', monospace;
@@ -1068,6 +1298,7 @@ html[dir="rtl"] .shop-header,
 html[dir="rtl"] .phoenix-actions,
 html[dir="rtl"] .music-controls,
 html[dir="rtl"] .theme-toggle,
+html[dir="rtl"] .device-toggle,
 html[dir="rtl"] .ability-hud,
 html[dir="rtl"] .bots-hud,
 html[dir="rtl"] .status-row,
